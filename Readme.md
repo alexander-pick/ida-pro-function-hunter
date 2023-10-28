@@ -1,7 +1,8 @@
 # IDA Pro Function Hunter
 
 2019-2023 by Alexander Pick
-https://github.com/alexander-pick/ida-pro-function-hunter
+
+Web: https://github.com/alexander-pick/ida-pro-function-hunter
 
 ## Description
 
