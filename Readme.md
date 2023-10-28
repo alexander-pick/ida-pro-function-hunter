@@ -1,15 +1,11 @@
 # IDA Pro Function Hunter
-
 2019-2023 by Alexander Pick
-
-Web: https://github.com/alexander-pick/ida-pro-function-hunter
 
 ## Description
 
-This small utility script was written as helper for vuulnerability analysis of blackbox binaries. It will find possible unsafe functions (the stuff you don't want to see) and other interesting spots in the binary and mark them for futher analysis. 
+[This small utility script](https://github.com/alexander-pick/ida-pro-function-hunter) was written as a helper for vulnerability analysis of blackbox binaries. It will find possible unsafe functions (the stuff you don't want to see) and other interesting spots in the binary and mark them for futher analysis. 
 
-Furthermore it's capable of doing regex searches for intersting strings and possible secrets in the binary. The script utilizes a toml file from gitleaks for additional signatures. This file is downloaded upon script execution from the source repo on github. 
-Link: https://github.com/gitleaks/gitleaks/tree/master
+Furthermore it's capable of doing regex searches for intersting strings and possible hardcoded secrets in the binary. The script utilizes a toml file from gitleaks for additional signatures. This file is downloaded upon script execution [from the source repo on github](https://github.com/gitleaks/gitleaks/tree/master).
 
 Please be aware that this script was 99% of the time used with aarch64 binaries. It works with other architectures but needs some small adjustments (i.e. call_refs).
 
@@ -27,7 +23,7 @@ Currently the script contains an basic list of functions, feel free to add your 
 
 ## Compatibility
 
-This script is compatible up to IDA Pro 8.3 and Python 3.x
+This script is compatible up to IDA Pro 8.3 and Python 3.x.
 
 ## Motivation
 
