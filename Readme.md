@@ -23,6 +23,8 @@ Go through the breakpoint list and enable possible interesting syscalls for furt
 
 Interesting strings will be logged to IDA Pro's internal notepad for reference.
 
+Currently the script contains an basic list of functions, feel free to add your own functions to the list or delete stuff you don't want to check at all.
+
 ## Compatibility
 
 This script is compatible up to IDA Pro 8.3 and Python 3.x
