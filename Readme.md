@@ -1,5 +1,5 @@
 # IDA Pro Function Hunter
-2019-2023 by Alexander Pick
+2019-2024 by Alexander Pick
 
 ## Description
 
@@ -23,11 +23,15 @@ Currently the script contains an basic list of functions, feel free to add your 
 
 ## Compatibility
 
-This script is compatible up to IDA Pro 8.3 and Python 3.x.
+This script is compatible up to IDA Pro 8.x/9.x and Python 3.x.
 
 ## Motivation
 
 I wrote the script for myself and used it for quite some time now. It was mainly designed to work with iOS and MacOSX binaries but it will work on embedded and Android native binaries as well. It's simple and portable and does the job. I found it very helpful to get an idea of the quality of a target binaries and locate possible interesting spots during assesments.
+
+## Version History
+- Moved config items to config files (see 'config.json')
+- Tested with IDA 9.0
 
 ## License
 

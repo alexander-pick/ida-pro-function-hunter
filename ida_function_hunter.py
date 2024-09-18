@@ -1,7 +1,7 @@
 #
 #   IDA Pro Function Hunter
 #   released unter MIT license, see Readme.md for details
-#   2019-2023 by Alexander Pick
+#   2019-2024 by Alexander Pick
 #
 
 from idautils import *
@@ -15,63 +15,16 @@ import re
 import tomli
 import requests
 import os
+import json
 
-# all kind of imports which need review
-# https://dwheeler.com/secure-programs/Secure-Programs-HOWTO/dangers-c.html
-
-insecure_funcs = ['gets', 'getwd', 'malloc', 'memcmp', 'memcpy', 'memmove', 'me​mset', 'scanf', 'sprintf​', 'fscanf', 'sscanf', 'stpcpy',
-                  'strcat', 'strcpy', 'strlen', 'strtok', 'strtok_r', 'swprintf', 'swscanf', 'vscanf', 'vsnprintf', 'vfscanf',
-                  'vsprintf', 'vsscanf', 'vswprintf', 'wcpcpy', 'wcpncpy', 'wcrtomb', 'wcscat', 'wcscpy', 'wcslen', 'wcsncat', 'wcsncpy',
-                  'wcsnrtombs', 'wcsrtombs', 'wcstok', 'wcstombs', 'wctomb', 'wmemcmp', 'wmemcpy', 'wmemmove', 'wmemset', 'wscanf',
-                  '​alloca', '​realpath', 'popen', 'strcmp', 'sprintf', 'atoi', 'atoll', 'atof', 'calloc', 'alloc', 'realloc', 'free', 'strcasecmp',
-                  'getpass', 'getopt', 'streadd', 'strecpy', 'strtrns', 'getwd']
-
-insecure_rands = ["drand48", "erand48", "jrand48", "lcong48", "random",
-                  "lrand48", "mrand48", "nrand48", "rand", "seed48", "srand", "srand48", "_arc4random", "_arc4random_uniform", "_swift_stdlib_random"]
-
-# https://codewithchris.com/swift-random-number/
-
-pure_terror = ['system', 'exec', 'execve', 'execl',
-               'execle', 'execlp', 'exect', 'execv', 'execvp', "ptrace"]
-
-danger = insecure_funcs + insecure_rands + pure_terror
-
-# TODO: opcodes
-opcodes = ["rdtsc", "xor"]
-
-# search and report interesting strings
-supicious_strings = ["PRIVATE KEY"]
-
-# review patterns (URLs, keys)
-regex_patterns = [
-                  # URLs
-                  [ r'^/(?!xml)(://[\da-z./?A-Z0-9\D=_-]*)$', "Url" ],
-                  # Google API Key
-                  [ r'AIza[0-9A-Za-z-_]{35}', 'Google API Key' ],
-                  # basic auth
-                  [ r'^(\"|\')?Basic [A-Za-z0-9\\+=]{60}(\"|\')?$', 'basic auth' ],
-                  # bearer token
-                  [ r'earer\s[\d|a-f]{8}-([\d|a-f]{4}-){3}[\d|a-f]{12}', "bearer token" ],
-                  # AWS secrets
-                  [ r"^[0-9a-zA-Z/+]{40}$", "AWS secrets" ],
-                  # Base64
-                  [ r'^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$', 'Base64' ],
-                  # HTTP Auth Credentials
-                  [ r'://[a-zA-Z0-9]+:[a-zA-Z0-9]+@[a-zA-Z0-9]+\.[a-zA-Z]+', 'HTTP Auth Credentials' ],
-                  # ipv4
-                  [ r'\b(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}\b', 'ipv4' ],
-                  # ipv6
-                  [ r'(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))', 'ipv6' ],
-                  # MD5 Hash
-                  [ r'[a-f0-9]{32}', 'MD5 Hash' ],
-                  ]
-
-# call References, needed for analysis
-call_refs = ["call", "bl", "br", "beq", "b", "blx", "bx"]
+danger = None
+call_refs = None
+pure_terror = None
 
 script_dir = os.path.dirname(os.path.realpath(__file__))+"/"
 
 def update_toml():
+    
     global script_dir
     update_url = "https://raw.githubusercontent.com/gitleaks/gitleaks/master/config/gitleaks.toml"
 
@@ -104,7 +57,7 @@ def is_ins_seg_executable(addr):
 
 # this is mainly for macho/swift code, look if it's a stub in a stub segment
 def is_ins_segment_stub(addr):
-    seg_start = get_segm_start(addr)
+    #seg_start = get_segm_start(addr)
     seg_name = get_segm_name(addr)
     # print("%x: %s" % (seg_start, seg_name))
     if "stub" in seg_name:
@@ -144,20 +97,24 @@ def mark_and_bp(addr, name):
 def get_call_xrefs(addr, name):
 
     xrefs = CodeRefsTo(addr, False)
+    
+    if(xrefs == None):
+        print("[i] xref: no xrefs to %x" % addr)
+        return
 
     # iterate over each cross-reference
     for xref in xrefs:
         #print("xref: %x" % xref)
         opcode = print_insn_mnem(xref).lower()
 
-        if is_call(opcode):
-            print("[-] xref: found call to %s (%x) at %x" % (name, addr, xref))
+        if(is_call(opcode)):
+            #print("[d] xref: found call to %s (%x) at %x" % (name, addr, xref))
 
-            if is_ins_segment_stub(xref):
+            if(is_ins_segment_stub(xref)):
 
                 current_func = get_func_name(xref)
-                print("[-] %s is a stub func at %x, digging deeper" %
-                      (current_func, xref))
+                # print("[d] %s is a stub func at %x, digging deeper" %
+                #       (current_func, xref))
 
                 # get startEA
                 func = get_func(xref)
@@ -166,14 +123,14 @@ def get_call_xrefs(addr, name):
 
             else:
 
-                if is_ins_seg_executable(xref):
+                if(is_ins_seg_executable(xref)):
 
                     # print("call is in a executable segment")
                     mark_and_bp(xref, name)
 
                 else:
 
-                    print("[-] found %x but seems to be a ref, digging deeper" % xref)
+                    #print("[d] found %x but seems to be a ref, digging deeper" % xref)
                     # evil recurision
                     get_call_xrefs(xref, name)
 
@@ -193,14 +150,11 @@ def import_callback(addr, name, ord):
                     get_call_xrefs(addr, name)
 
     except Exception as e:
-        print(e)
+        print("[e] import_callback(): %s" % e)
 
     return True
 
-def regex_search():
-
-    global regex_patterns
-    global supicious_strings
+def regex_search(regex_patterns, supicious_strings):
 
     try:
         #load here or IDA will explode if done in the loop :)
@@ -220,7 +174,7 @@ def regex_search():
 
             # search regex
             for item in regex_patterns:
-                #print(item[1])
+                #print("[d] %s: %s" % (item[1], item[0]))
                 match = re.search(item[0], str(idastring))
                 if match:
                     #avoid stupid matches like "::" with ipv6
@@ -230,7 +184,6 @@ def regex_search():
             
             # more regex, key regex file borrowed from gitleaks
             # https://raw.githubusercontent.com/zricethezav/gitleaks/master/config/gitleaks.toml
-
 
             for gl_item in gl_data["rules"]:
                 #print(gl_item["description"])
@@ -243,49 +196,66 @@ def regex_search():
                     #print("[e] problem with regex %s: %s" % (gl_item["regex"], str(e)))
                     pass
 
-    except:
-        print("[e] string analysis failed")
+    except Exception as e:
+        print("[e] string analysis error: %s" % e)
         pass
 
     return True
 
 def run():
+    
+    global script_dir
+    
+    with open(script_dir+"/config.json") as fh_config:
+        
+        fh_config = json.load(fh_config)
+        
+        global call_refs
+        call_refs = fh_config["call_refs"]
+        
+        global pure_terror
+        pure_terror = fh_config["pure_terror"]
+        
+        global danger
+        danger = fh_config["insecure_funcs"] + fh_config["insecure_rands"] + fh_config["pure_terror"]
 
-    global danger
+        print("--> IDA Function Hunter")
 
-    print("--> IDA Function Hunter")
+        print("[i] running search for dangerous functions")
 
-    print("[i] running search for dangerous functions")
+        print("[s] checking imports")
 
-    print("[s] checking imports")
+        for val in range(0, get_import_module_qty()):
+            name = get_import_module_name(val)
+            enum_import_names(val, import_callback)
+            # try:
+            #    name = get_import_module_name(val)
+            #    enum_import_names(val, import_callback)
+            # except Exception as e:
+            #    print("An error occured!")
+            #    print(e)
 
-    for val in range(0, get_import_module_qty()):
-        name = get_import_module_name(val)
-        enum_import_names(val, import_callback)
-        # try:
-        #    name = get_import_module_name(val)
-        #    enum_import_names(val, import_callback)
-        # except Exception as e:
-        #    print("An error occured!")
-        #    print(e)
+        print("[s] checking embedded functions")
 
-    print("[s] checking embedded functions")
+        for addr in Functions():
+            for item in danger:
+                if item in get_func_name(addr).lower():
+                    if(len(name) < (len(item) + 4)):
+                        print("[i] function: found %s at %x" % (name, addr))
+                        get_call_xrefs(addr, name)
 
-    for addr in Functions():
-        for item in danger:
-            if item in get_func_name(addr).lower():
-                if len(name) < (len(item) + 4):
-                    print("[i] function: found %s at %x" % (name, addr))
-                    get_call_xrefs(addr, name)
+        print("[s] updating string signatures")
 
-    print("[s] updating string signatures")
+        update_toml()
 
-    update_toml()
+        print("[s] running string analysis")
 
-    print("[s] running string analysis")
+        regex_search(fh_config["regex_patterns"], fh_config["supicious_strings"])
 
-    regex_search()
-
-    print("[i] function hunter has finished")
+        print("[i] done")
 
 run()
+
+if(len(idc.ARGV)):
+    if(idc.ARGV[1] == "batchjob"):
+        idc.qexit(0)
