@@ -40,7 +40,13 @@ def update_toml():
 
 def write_log(log_line):
     current_text = get_ida_notepad_text()
-    future_text = (str(current_text) + log_line + "\n")
+    
+    future_text = ""
+    
+    if(current_text):
+        future_text += str(current_text)
+    
+    future_text += (log_line + "\n")
 
     set_ida_notepad_text(future_text, len(future_text))
 
@@ -98,7 +104,7 @@ def get_call_xrefs(addr, name):
 
     xrefs = CodeRefsTo(addr, False)
     
-    if(xrefs == None):
+    if(not xrefs):
         print("[i] xref: no xrefs to %x" % addr)
         return
 
@@ -223,7 +229,7 @@ def run():
 
         print("[i] running search for dangerous functions")
 
-        print("[s] checking imports")
+        print("[i] checking imports")
 
         for val in range(0, get_import_module_qty()):
             name = get_import_module_name(val)
@@ -235,7 +241,7 @@ def run():
             #    print("An error occured!")
             #    print(e)
 
-        print("[s] checking embedded functions")
+        print("[i] checking embedded functions")
 
         for addr in Functions():
             for item in danger:
@@ -244,11 +250,11 @@ def run():
                         print("[i] function: found %s at %x" % (name, addr))
                         get_call_xrefs(addr, name)
 
-        print("[s] updating string signatures")
+        print("[i] updating string signatures")
 
         update_toml()
 
-        print("[s] running string analysis")
+        print("[i] running string analysis")
 
         regex_search(fh_config["regex_patterns"], fh_config["supicious_strings"])
 
