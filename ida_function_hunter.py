@@ -28,13 +28,19 @@ def update_toml():
     global script_dir
     update_url = "https://raw.githubusercontent.com/gitleaks/gitleaks/master/config/gitleaks.toml"
 
-    response = requests.get(update_url)
+    try:
 
-    if response.ok:
-        with open(script_dir+"gitleaks.toml", mode="wb") as file:
-            file.write(response.content)
-    else:
+        response = requests.get(update_url)
+
+        if response.ok:
+            with open(script_dir+"gitleaks.toml", mode="wb") as file:
+                file.write(response.content)
+        else:
+            raise
+            
+    except:
         print("[e] error downloading update toml file!")
+        pass
 
     return True
 
